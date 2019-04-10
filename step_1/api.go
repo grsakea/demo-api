@@ -7,9 +7,7 @@ import (
 )
 
 func main() {
-	// Create gin application
 	router := setupRouter()
-	// Launch the application
 	err := router.Run()
 
 	fmt.Println(err)
@@ -26,7 +24,6 @@ func setupRouter() *gin.Engine {
 
 func pingMessageController(c *gin.Context) {
 	user := c.Params.ByName("message")
-
 	c.JSON(200, gin.H{
 		"message": "hello " + user,
 	})
