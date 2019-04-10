@@ -45,3 +45,15 @@ func TestInitDbWhenInvalidDb(t *testing.T) {
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
+
+func TestAddUserControllerWithoutParams(t *testing.T) {
+	os.Remove("test.db")
+	os.Setenv("DB_STRING", "test.db")
+	router := setupRouter()
+	performRequest(router, "POST", "/initDB")
+	w := performRequest(router, "GET", "/users")
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, 4, w.Body.Len())
+	os.Remove("test.db")
+}

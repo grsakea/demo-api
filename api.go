@@ -17,10 +17,7 @@ type User struct {
 }
 
 func main() {
-	// Create gin application
 	router := setupRouter()
-
-	// Launch the application
 	err := router.Run()
 
 	fmt.Println(err)
@@ -41,9 +38,34 @@ func setupRouter() *gin.Engine {
 	return router
 }
 
+func handleError(err error, code int, c *gin.Context) {
+	c.AbortWithStatusJSON(code, gin.H{
+		"error": err.Error(),
+	})
+}
+
+func ConnectDB() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		val, ok := os.LookupEnv("DB_STRING")
+		if !ok {
+			val = "app.db"
+		}
+
+		database, err := sql.Open("sqlite3", val)
+		if err != nil {
+			handleError(err, 500, c)
+			return
+		}
+
+		c.Set("db", database)
+		c.Next()
+		database.Close()
+	}
+
+}
+
 func pingMessageController(c *gin.Context) {
 	user := c.Params.ByName("message")
-
 	c.JSON(200, gin.H{
 		"message": "hello " + user,
 	})
@@ -54,12 +76,12 @@ func initDBController(c *gin.Context) {
 
 	statement, err := db.Prepare("CREATE TABLE IF NOT EXISTS people (id INTEGER PRIMARY KEY, firstname TEXT, lastname TEXT)")
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 500, c)
 		return
 	}
 	_, err = statement.Exec()
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 500, c)
 		return
 	}
 
@@ -69,23 +91,24 @@ func addUserController(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 	data, err := c.GetRawData()
 	if err != nil {
-		handleError(err, c)
+		fmt.Println("a")
+		handleError(err, 400, c)
 		return
 	}
 	first_name, _, _, err := jsonparser.Get(data, "firstName")
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 400, c)
 		return
 	}
 	last_name, _, _, err := jsonparser.Get(data, "lastName")
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 400, c)
 		return
 	}
 
 	_, err = db.Exec("INSERT INTO people (firstname, lastname) VALUES (?, ?)", first_name, last_name)
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 500, c)
 		return
 	}
 }
@@ -111,40 +134,9 @@ func deleteUserController(c *gin.Context) {
 
 	_, err := db.Exec("DELETE FROM people where id = ?", userId)
 	if err != nil {
-		handleError(err, c)
+		handleError(err, 500, c)
 		return
 	}
 
 	c.JSON(204, nil)
-}
-
-func ConnectDB() gin.HandlerFunc {
-
-	return func(c *gin.Context) {
-		os.LookupEnv("DB_STRING")
-		val, ok := os.LookupEnv("DB_STRING")
-		if !ok {
-			val = "app.db"
-		}
-
-		database, err := sql.Open("sqlite3", val)
-
-		if err != nil {
-			handleError(err, c)
-			return
-		}
-
-		c.Set("db", database)
-
-		c.Next()
-
-		database.Close()
-	}
-
-}
-
-func handleError(err error, c *gin.Context) {
-	c.AbortWithStatusJSON(500, gin.H{
-		"error": err.Error(),
-	})
 }
